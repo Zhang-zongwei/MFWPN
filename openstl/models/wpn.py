@@ -5,18 +5,14 @@ import numpy as np
 import copy
 import numbers
 from einops import rearrange
-from openstl.modules import (ConvSC, GASubBlock, TAUSubBlock)
+from openstl.modules import (ConvSC, GASubBlock)
 
 
-class SimVP_Model(nn.Module):
-    r"""SimVP Model
-    Implementation of `SimVP: Simpler yet Better Video Prediction
-    <https://arxiv.org/abs/2206.05099>`_.
-    """
+class WPN_Model(nn.Module):
     def __init__(self, hid_S=2, hid_T=256, N_S=2, N_T=8, model_type='gsta',
                  mlp_ratio=8., drop=0.0, drop_path=0.0, spatio_kernel_enc=3,
                  spatio_kernel_dec=3, act_inplace=True, **kwargs):
-        super(SimVP_Model, self).__init__()
+        super(WPN_Model, self).__init__()
         T, C, H, W = 24, 2, 64, 80  # T is pre_seq_length
         #H, W = int(H / 2**(N_S/2)), int(W / 2**(N_S/2))  # downsample 1 / 2**(N_S/2)
         H, W = 64, 80
