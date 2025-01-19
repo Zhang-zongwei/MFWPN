@@ -124,11 +124,12 @@ class dataset_package(Dataset):
 if __name__ == '__main__':
     print('Configs:\n', configs.__dict__)
     
-    uv_test   = np.load("data/975_uv_test.npy")
-    zt_test  = np.load("data/975_tz_test.npy")
+    uv_test   = np.load("data/Northeast/uv100_test.npy").astype(np.float32)
+    zt_test  = np.load("data/Northeast/1000zt_test.npy").astype(np.float32)
     uv_test   = np.concatenate((uv_test, zt_test), axis=1)
     del zt_test
-    ele = np.load('data/DEM_northeast.npy')
+    
+    ele = np.load('data/Northeast/DEM_northeast.npy')
 
     ele[ele < 0] = 0
     ele= (ele - ele.mean()) / ele.std()
@@ -145,15 +146,8 @@ if __name__ == '__main__':
     print('Dataset_test Shape:\n', dataset_test.GetDataShape())
 
     trainer = Trainer(configs)
-    net = torch.load('chkfile/checkpoint.chk')
+    net = torch.load('chkfile/checkpoint_mfwpn.chk')
     trainer.network.load_state_dict(net['net'])
-
-######GFlops
-#     device_gpu = torch.device('cuda:0')
-#     input = torch.randn(1, 24, 4, 64, 80, device=device_gpu)
-#     ele = torch.randn(64, 80, device=device_gpu)
-#     flops, params = profile(trainer.network, inputs=(input, ele))
-#     print('FLOPs = ' + str(flops/1024**3) + 'G')
     
     elev = torch.tensor(ele)
     data = DataLoader(dataset_test, batch_size=1, shuffle=False)
