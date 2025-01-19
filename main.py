@@ -115,7 +115,7 @@ class Trainer:
         loss_ssim = self.SSIM_loss(uv_pred, uv_true.float().to(self.device))   
         loss_angle = self.Angle_loss(uv_true.float().to(self.device), uv_pred)
 
-        loss = loss_u + loss_v + loss_ssim + 3.5*loss_angle
+        loss = loss_u + loss_v + loss_ssim + loss_angle
  
         loss.backward()
         if configs.gradient_clipping:
@@ -223,46 +223,59 @@ class dataset_package(Dataset):
     def __getitem__(self, idx):
         return self.input[idx], self.target[idx]
 
+    def split_data(self, test_size=0.1, random_state=35):
+        """
+        Split the data into training and testing sets.
+
+        Args:
+            test_size (float): Proportion of the dataset to include in the test split (default is 0.2).
+            random_state (int or None): Random seed for reproducibility (default is None).
+
+        Returns:
+            (train_dataset, test_dataset): Tuple of Dataset objects for training and testing.
+        """
+        # Use sklearn's train_test_split to randomly split the data
+        X_train, X_test, y_train, y_test = train_test_split(
+            self.input, self.target, test_size=test_size, random_state=random_state
+        )
+
+        # Create new datasets for train and test
+        train_dataset = dataset_package(X_train, y_train)
+        test_dataset = dataset_package(X_test, y_test)
+
+        return train_dataset, test_dataset
 ########################################################################################################################
 
 if __name__ == '__main__':
     print('Configs:\n', configs.__dict__)
 
-    uv_train = np.load("data/975_uv_train.npy")
-    zt_train = np.load("data/975_tz_train.npy")
+    uv_train = np.load("data/Northeast/uv100_train.npy").astype(np.float32)
+    zt_train = np.load("data/Northeast/1000zt_train.npy").astype(np.float32)
     
-    uv_val   = np.load("data/975_uv_test.npy")
-    zt_val   = np.load("data/975_tz_test.npy")
     uv_train = np.concatenate((uv_train, zt_train), axis=1)
     del zt_train
-    uv_val   = np.concatenate((uv_val, zt_val), axis=1)
-    del zt_val
-    ele = np.load('data/DEM_northeast.npy')
     
+    ele = np.load('data/Northeast/DEM_northeast.npy').astype(np.float32)
 
     ele[ele < 0] = 0
     ele= (ele - ele.mean()) / ele.std()
 
     print('processing training set')
-    dataset_train = data_process(uv_train, samples_gap=3)
+    dataset_train = cmip_dataset(uv_train, samples_gap=3)
     del uv_train
-    
-    print('processing eval set')
-    dataset_eval = data_process(uv_val, samples_gap=6)
-    del uv_val
 
     train_x = dataset_train[:, :24, :, :, :]
     train_y = dataset_train[:, 24:, :, :, :]
-    test_x = dataset_eval[:, :24, :, :, :]
-    test_y = dataset_eval[:, 24:, :, :, :]
     
     dataset_train = dataset_package(train_x=train_x, train_y=train_y)
-    dataset_test = dataset_package(train_x=test_x, train_y=test_y)
-    del train_x, train_y, test_x, test_y
+    del train_x, train_y
+    
+    dataset_train, dataset_val = dataset_train.split_data()
+    
     print('Dataset_train Shape:\n', dataset_train.GetDataShape())
-    print('Dataset_test Shape:\n', dataset_test.GetDataShape())
-
+    print('Dataset_val Shape:\n', dataset_val.GetDataShape())
+    
     trainer = Trainer(configs)
     trainer.save_configs('config_train.pkl')
     
-    trainer.train(dataset_train, dataset_test, ele, 'chkfile/checkpoint.chk')
+    trainer.train(dataset_train, dataset_test, ele, 'chkfile/checkpoint_mfwpn.chk')
