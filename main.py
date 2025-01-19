@@ -87,13 +87,13 @@ class Trainer:
         true = self.Angle_wind(batch_y)
         pred = self.Angle_wind(pred_y)
         
-        min_all = min(true.min(), pred.min())
-        max_all = max(pred.max(), true.max())
-        true = (true - min_all) / (max_all - min_all)
-        pred = (pred - min_all) / (max_all - min_all)
-        
-        mse = torch.mean((true - pred)**2)
-        rmse = mse.sqrt()
+        diff = torch.abs(true - pred)
+        diff = torch.where(diff > 180, 360 - diff, diff)
+
+        diff_normalized = diff / 180.0
+
+        mse = torch.mean(diff_normalized ** 2)
+        rmse = torch.sqrt(mse)
         return rmse
     
     def Angle_wind(self, batch_y):
