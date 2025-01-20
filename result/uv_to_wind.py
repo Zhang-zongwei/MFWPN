@@ -1,7 +1,7 @@
 import numpy as np
 
 
-#####用于反归一化以及求取风速
+#####data/uv_normallization_para.txt
 
 uv_true = np.load(r'uv_true.npy')
 uv_pred = np.load(r'uv_pred.npy')
