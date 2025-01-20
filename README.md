@@ -1,4 +1,4 @@
-# A machine learning method for hub-height short-term wind speed prediction
+# A machine learning model for hub-height short-term wind speed prediction
 
 *2025.01*
 
