@@ -1,6 +1,6 @@
-# Multivariate fusion deep neural network for wind speed prediction
+# A machine learning method for hub-height short-term wind speed prediction
 
-*2024.08*
+*2025.01*
 
 ## Abstract
 
