@@ -106,8 +106,8 @@ class Encoder(nn.Module):
         self.wscale = nn.Parameter(torch.ones(2))
         self.tzscale = nn.Parameter(torch.ones(2))
          ####Conv branch
-        self.wce =  DetailFeatureExtraction(num_layers=1)
-        self.tzce = DetailFeatureExtraction(num_layers=1)
+        self.wce =  INN_all(num_layers=1)
+        self.tzce = INN_all(num_layers=1)
         ####Self-attention branch
         self.wse = TransformerBlock(2, num_heads=2, ffn_expansion_factor=2, bias=False,
                                      LayerNorm_type='WithBias')
@@ -147,7 +147,7 @@ class Decoder(nn.Module):
         
         self.dwscale = nn.Parameter(torch.ones(2))
         ####Conv branch
-        self.dwce =  DetailFeatureExtraction(num_layers=1)                   
+        self.dwce =  INN_all(num_layers=1)                   
         ####Self-attention branch
         self.dwse = TransformerBlock(2, num_heads=2, ffn_expansion_factor=2, bias=False,
                                      LayerNorm_type='WithBias')
@@ -215,7 +215,8 @@ class MidMetaNet(nn.Module):
             z = self.enc_1[i](z)
         return z
 
-## Multi-DConv Head Transposed Self-Attention (MDTA)
+
+
 class Attention(nn.Module):
     def __init__(self, dim, num_heads, bias):
         super(Attention, self).__init__()
@@ -231,6 +232,7 @@ class Attention(nn.Module):
         b, c, h, w = x.shape
         qkv = self.qkv_dwconv(self.qkv(x))
         q, k, v = qkv.chunk(3, dim=1)
+        
         q = rearrange(q, 'b (head c) h w -> b head c (h w)',
                       head=self.num_heads)
         k = rearrange(k, 'b (head c) h w -> b head c (h w)',
@@ -239,6 +241,7 @@ class Attention(nn.Module):
                       head=self.num_heads)
         q = torch.nn.functional.normalize(q, dim=-1)
         k = torch.nn.functional.normalize(k, dim=-1)
+        
         attn = (q @ k.transpose(-2, -1)) * self.temperature
         attn = attn.softmax(dim=-1)
         out = (attn @ v)
@@ -246,11 +249,14 @@ class Attention(nn.Module):
                         head=self.num_heads, h=h, w=w)
         out = self.project_out(out)
         return out 
-##########################################################################
+
+
 def to_3d(x):
     return rearrange(x, 'b c h w -> b (h w) c')
+    
 def to_4d(x, h, w):
     return rearrange(x, 'b (h w) c -> b c h w', h=h, w=w)
+    
 class BiasFree_LayerNorm(nn.Module):
     def __init__(self, normalized_shape):
         super(BiasFree_LayerNorm, self).__init__()
@@ -260,9 +266,11 @@ class BiasFree_LayerNorm(nn.Module):
         assert len(normalized_shape) == 1
         self.weight = nn.Parameter(torch.ones(normalized_shape))
         self.normalized_shape = normalized_shape
+        
     def forward(self, x):
         sigma = x.var(-1, keepdim=True, unbiased=False)
         return x / torch.sqrt(sigma+1e-5) * self.weight
+        
 class WithBias_LayerNorm(nn.Module):
     def __init__(self, normalized_shape):
         super(WithBias_LayerNorm, self).__init__()
@@ -273,10 +281,13 @@ class WithBias_LayerNorm(nn.Module):
         self.weight = nn.Parameter(torch.ones(normalized_shape))
         self.bias = nn.Parameter(torch.zeros(normalized_shape))
         self.normalized_shape = normalized_shape
+        
     def forward(self, x):
         mu = x.mean(-1, keepdim=True)
         sigma = x.var(-1, keepdim=True, unbiased=False)
         return (x - mu) / torch.sqrt(sigma+1e-5) * self.weight + self.bias
+
+
 class LayerNorm(nn.Module):
     def __init__(self, dim, LayerNorm_type):
         super(LayerNorm, self).__init__()
@@ -287,7 +298,8 @@ class LayerNorm(nn.Module):
     def forward(self, x):
         h, w = x.shape[-2:]
         return to_4d(self.body(to_3d(x)), h, w)
-##########################################################################
+
+
 class FeedForward(nn.Module):
     def __init__(self, dim, ffn_expansion_factor, bias):
         super(FeedForward, self).__init__()
@@ -307,7 +319,8 @@ class FeedForward(nn.Module):
         x = F.gelu(x1) * x2
         x = self.project_out(x)
         return x
-##########################################################################
+
+
 class TransformerBlock(nn.Module):
     def __init__(self, dim, num_heads, ffn_expansion_factor, bias, LayerNorm_type):
         super(TransformerBlock, self).__init__()
@@ -319,55 +332,51 @@ class TransformerBlock(nn.Module):
         x = x + self.attn(self.norm1(x))
         x = x + self.ffn(self.norm2(x))
         return x
-##########################################################################
-class InvertedResidualBlock(nn.Module):
-    def __init__(self, inp, oup, expand_ratio):
-        super(InvertedResidualBlock, self).__init__()
+
+class INN(nn.Module):
+    def __init__(self, input, output, ratio):
+        super(INN, self).__init__()
         hidden_dim = int(inp * expand_ratio)
         self.bottleneckBlock = nn.Sequential(
-            # pw
             nn.Conv2d(inp, hidden_dim, 1, bias=False),
-            #nn.BatchNorm2d(hidden_dim),
             nn.ReLU6(inplace=True),
-            # dw
             nn.Conv2d(hidden_dim, hidden_dim, 3, stride=1, padding=1, bias=False),
-            #nn.BatchNorm2d(hidden_dim),
             nn.ReLU6(inplace=True),
-            # pw-linear
             nn.Conv2d(hidden_dim, oup, 1, bias=False),
             nn.BatchNorm2d(oup),
         )
     def forward(self, x):
         return self.bottleneckBlock(x)
 
-class DetailNode(nn.Module):
+class Feature(nn.Module):
     def __init__(self):
-        super(DetailNode, self).__init__()
-        # Scale is Ax + b, i.e. affine transformation
-        self.theta_phi = InvertedResidualBlock(inp=32, oup=32, expand_ratio=2)
-        self.theta_eta = InvertedResidualBlock(inp=32, oup=32, expand_ratio=2)
-        
-    def forward(self, z1, z2):
-        z2 = z2 + self.theta_phi(z1)
-        z1 = z1 + self.theta_eta(z2)
-        return z1, z2
+        super(Feature, self).__init__()
 
-class DetailFeatureExtraction(nn.Module):
-    def __init__(self, num_layers=3):
-        super(DetailFeatureExtraction, self).__init__()
-        INNmodules = [DetailNode() for _ in range(num_layers)]
-        self.net = nn.Sequential(*INNmodules)
+        self.phi = INN(input_dim=32, output=32, ratio=2)
+        self.seta = INN(input_dim=32, output=32, ratio=2)
         
-        self.shffleconv = nn.Conv2d(2, 64, kernel_size=3, stride=1, padding=1)
+    def forward(self, f1, f2):
+        f2 = f2 + self.phi(f1)
+        f1 = f1 + self.seta(f2)
+        return f1, f2
+
+class INN_all(nn.Module):
+    def __init__(self, num_layers=None):
+        super(INN_all, self).__init__()
+        INN_layers = [Feature() for _ in range(num_layers)]
+        self.net = nn.Sequential(*INN_layers)
+        
+        self.shffle = nn.Conv2d(2, 64, kernel_size=3, stride=1, padding=1)
         self.fusion = nn.Conv2d(64, 2, kernel_size=3, stride=1, padding=1)
         
-    def separateFeature(self, x):
-        z1, z2 = x[:, :x.shape[1]//2], x[:, x.shape[1]//2:x.shape[1]]
-        return z1, z2
+    def separate(self, x):
+        f1, f2 = x[:, :x.shape[1]//2], x[:, x.shape[1]//2:x.shape[1]]
+        return f1, f2
     
     def forward(self, x):
-        z1, z2 = self.separateFeature(self.shffleconv(x))
+        f1, f2 = self.separate(self.shffle(x))
+        
         for layer in self.net: 
-            z1, z2 = layer(z1, z2)
-        z_out = self.fusion(torch.cat((z1, z2), dim=1))
-        return z_out
+            f1, f2 = layer(f1, f2)
+        f_out = self.fusion(torch.cat((f1, f2), dim=1))
+        return f_out
