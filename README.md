@@ -57,4 +57,4 @@ python evaluate.py
 ```
 ## Acknowledgments
 
-Our code is based on [OpenSTL](https://github.com/chengtan9907/OpenSTL). We sincerely appreciate for their contributions.
+Our code is based on [OpenSTL](https://github.com/chengtan9907/OpenSTL),[Restormer](https://github.com/swz30/Restormer),[CDDFuse](https://github.com/ Zhaozixiang1228/MMIF-CDDFuse). We sincerely appreciate for their contributions.
