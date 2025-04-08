@@ -261,7 +261,7 @@ if __name__ == '__main__':
     ele= (ele - ele.mean()) / ele.std()
 
     print('processing training set')
-    dataset_train = cmip_dataset(uv_train, samples_gap=3)
+    dataset_train = data_process(uv_train, samples_gap=3)
     del uv_train
 
     train_x = dataset_train[:, :24, :, :, :]
