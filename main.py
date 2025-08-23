@@ -279,5 +279,6 @@ if __name__ == '__main__':
     trainer = Trainer(configs)
     trainer.save_configs('config_train.pkl')
     
-    trainer.train(dataset_train, dataset_test, ele, 'chkfile/checkpoint_mfwpn.chk')
+    trainer.train(dataset_train, dataset_val, ele, 'chkfile/checkpoint_mfwpn.chk')
+
 
