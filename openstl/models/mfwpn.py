@@ -336,14 +336,14 @@ class TransformerBlock(nn.Module):
 class INN(nn.Module):
     def __init__(self, input, output, ratio):
         super(INN, self).__init__()
-        hidden_dim = int(inp * expand_ratio)
+        hidden_dim = int(input * ratio)
         self.bottleneckBlock = nn.Sequential(
-            nn.Conv2d(inp, hidden_dim, 1, bias=False),
+            nn.Conv2d(input, hidden_dim, 1, bias=False),
             nn.ReLU6(inplace=True),
             nn.Conv2d(hidden_dim, hidden_dim, 3, stride=1, padding=1, bias=False),
             nn.ReLU6(inplace=True),
-            nn.Conv2d(hidden_dim, oup, 1, bias=False),
-            nn.BatchNorm2d(oup),
+            nn.Conv2d(hidden_dim, output, 1, bias=False),
+            nn.BatchNorm2d(output),
         )
     def forward(self, x):
         return self.bottleneckBlock(x)
@@ -352,8 +352,8 @@ class Feature(nn.Module):
     def __init__(self):
         super(Feature, self).__init__()
 
-        self.phi = INN(input_dim=32, output=32, ratio=2)
-        self.seta = INN(input_dim=32, output=32, ratio=2)
+        self.phi = INN(input=32, output=32, ratio=2)
+        self.seta = INN(input=32, output=32, ratio=2)
         
     def forward(self, f1, f2):
         f2 = f2 + self.phi(f1)
@@ -380,3 +380,4 @@ class INN_all(nn.Module):
             f1, f2 = layer(f1, f2)
         f_out = self.fusion(torch.cat((f1, f2), dim=1))
         return f_out
+
