@@ -137,7 +137,7 @@ class Trainer:
     def infer(self, dataset, dataloader, ele):
         self.network.eval()
         with torch.no_grad():
-            uvpred = self.test(dataloader, ele)
+            uv_pred = self.test(dataloader, ele)
             uv_true = torch.from_numpy(dataset.target).float().to(self.device)
             
             loss_u = self.loss(uv_pred, uv_true, self.u).item()
@@ -280,5 +280,6 @@ if __name__ == '__main__':
     trainer.save_configs('config_train.pkl')
     
     trainer.train(dataset_train, dataset_val, ele, 'chkfile/checkpoint_mfwpn.chk')
+
 
 
