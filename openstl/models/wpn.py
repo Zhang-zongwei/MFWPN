@@ -277,9 +277,9 @@ class TransformerBlock(nn.Module):
 
 
 class INN(nn.Module):
-    def __init__(self, input, output, ratio):
+    def __init__(self, inp, oup, ratio):
         super(INN, self).__init__()
-        hidden_dim = int(inp * expand_ratio)
+        hidden_dim = int(inp * ratio)
         self.bottleneckBlock = nn.Sequential(
             nn.Conv2d(inp, hidden_dim, 1, bias=False),
             nn.ReLU6(inplace=True),
@@ -296,8 +296,8 @@ class Feature(nn.Module):
     def __init__(self):
         super(Feature, self).__init__()
 
-        self.phi = INN(input_dim=32, output=32, ratio=2)
-        self.seta = INN(input_dim=32, output=32, ratio=2)
+        self.phi = INN(inp=32, oup=32, ratio=2)
+        self.seta = INN(inp=32, oup=32, ratio=2)
         
     def forward(self, f1, f2):
         f2 = f2 + self.phi(f1)
